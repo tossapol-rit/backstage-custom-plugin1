@@ -1,0 +1,4 @@
+vault
+Vault UI: http://localhost:8200
+Root Token: myroot
+API Endpoint: http://localhost:8200

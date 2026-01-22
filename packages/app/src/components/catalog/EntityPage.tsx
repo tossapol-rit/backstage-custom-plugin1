@@ -57,6 +57,7 @@ import {
   EntityKubernetesContent,
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
+import { EntityVaultContent } from '@internal/backstage-plugin-vault';
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -220,6 +221,10 @@ const websiteEntityPage = (
 
     <EntityLayout.Route path="/docs" title="Docs">
       {techdocsContent}
+    </EntityLayout.Route>
+
+    <EntityLayout.Route path="/vault" title="Vault">
+      <EntityVaultContent />
     </EntityLayout.Route>
   </EntityLayout>
 );
