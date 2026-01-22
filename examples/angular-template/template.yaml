@@ -1,0 +1,167 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: angular-application-template
+  title: Angular Application Template
+  description: Create a new Angular application with database and Vault integration
+  tags:
+    - angular
+    - frontend
+    - vault
+spec:
+  owner: user:guest
+  type: service
+
+  parameters:
+    - title: Application Information
+      required:
+        - name
+        - description
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name of the component
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        description:
+          title: Description
+          type: string
+          description: Help others understand what this component is for.
+        
+    - title: Angular Configuration
+      required:
+        - angularVersion
+      properties:
+        angularVersion:
+          title: Angular Version
+          type: string
+          description: Select Angular version
+          default: '18'
+          enum:
+            - '15'
+            - '16'
+            - '17'
+            - '18'
+            - '19'
+          enumNames:
+            - 'Angular 15'
+            - 'Angular 16'
+            - 'Angular 17'
+            - 'Angular 18 (Latest LTS)'
+            - 'Angular 19'
+
+    - title: Database Configuration
+      properties:
+        database:
+          title: Database
+          type: string
+          description: Select database type
+          default: 'none'
+          enum:
+            - 'postgresql'
+            - 'mysql'
+            - 'mongodb'
+            - 'none'
+          enumNames:
+            - 'PostgreSQL'
+            - 'MySQL'
+            - 'MongoDB'
+            - 'None'
+        databaseName:
+          title: Database Name
+          type: string
+          description: Name of the database (leave empty to use project name)
+          ui:help: 'Only used if database type is selected'
+
+    - title: Vault Integration
+      properties:
+        enableVault:
+          title: Enable Vault Integration
+          type: boolean
+          description: Enable HashiCorp Vault for secrets management
+          default: true
+        vaultAddr:
+          title: Vault Address
+          type: string
+          description: HashiCorp Vault server address
+          default: 'http://localhost:8200'
+          ui:help: 'Only used if Vault is enabled'
+        vaultToken:
+          title: Vault Token
+          type: string
+          description: Vault access token
+          default: 'myroot'
+          ui:help: 'Only used if Vault is enabled'
+        vaultSecrets:
+          title: Initial Secrets
+          type: string
+          description: Initial secrets to create in Vault (JSON format, e.g., {"db_password":"secret123","api_key":"key456"})
+          ui:widget: textarea
+          ui:options:
+            rows: 5
+          ui:help: 'Only used if Vault is enabled. Secrets will be stored at secret/data/apps/[project-name]'
+
+    - title: Choose a location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+            allowedOwners:
+              - tossapol-rit
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          angularVersion: ${{ parameters.angularVersion }}
+          database: ${{ parameters.database }}
+          enableVault: ${{ parameters.enableVault }}
+          owner: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
+          repo: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: public
+
+    - id: create-vault-secrets
+      name: Create Vault Secrets
+      action: vault:create-secrets
+      input:
+        vaultAddr: ${{ parameters.vaultAddr if parameters.vaultAddr else 'http://localhost:8200' }}
+        vaultToken: ${{ parameters.vaultToken if parameters.vaultToken else 'myroot' }}
+        secretPath: apps/${{ parameters.name }}
+        secrets: ${{ parameters.vaultSecrets if parameters.enableVault and parameters.vaultSecrets else '' }}
+
+    - id: register
+      name: Register Component
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

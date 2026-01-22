@@ -1,0 +1,86 @@
+{% if values.database != 'none' %}
+import { Injectable } from '@angular/core';
+{% if values.database == 'postgresql' %}
+import { Pool } from 'pg';
+{% elif values.database == 'mysql' %}
+import * as mysql from 'mysql2/promise';
+{% elif values.database == 'mongodb' %}
+import { MongoClient } from 'mongodb';
+{% endif %}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class DatabaseService {
+{% if values.database == 'postgresql' %}
+  private pool: Pool;
+
+  constructor() {
+    this.pool = new Pool({
+      host: process.env['DB_HOST'] || 'localhost',
+      port: parseInt(process.env['DB_PORT'] || '5432'),
+      database: process.env['DB_NAME'] || '${{ values.databaseName or values.name }}',
+      user: process.env['DB_USER'] || 'postgres',
+      password: process.env['DB_PASSWORD'] || 'postgres'
+    });
+  }
+
+  async query(text: string, params?: any[]) {
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(text, params);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  async close() {
+    await this.pool.end();
+  }
+{% elif values.database == 'mysql' %}
+  private pool: mysql.Pool;
+
+  constructor() {
+    this.pool = mysql.createPool({
+      host: process.env['DB_HOST'] || 'localhost',
+      port: parseInt(process.env['DB_PORT'] || '3306'),
+      database: process.env['DB_NAME'] || '${{ values.databaseName or values.name }}',
+      user: process.env['DB_USER'] || 'root',
+      password: process.env['DB_PASSWORD'] || 'password'
+    });
+  }
+
+  async query(sql: string, values?: any[]) {
+    const [rows] = await this.pool.execute(sql, values);
+    return rows;
+  }
+
+  async close() {
+    await this.pool.end();
+  }
+{% elif values.database == 'mongodb' %}
+  private client: MongoClient;
+  private dbName: string;
+
+  constructor() {
+    const uri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017';
+    this.dbName = process.env['DB_NAME'] || '${{ values.databaseName or values.name }}';
+    this.client = new MongoClient(uri);
+  }
+
+  async connect() {
+    await this.client.connect();
+    return this.client.db(this.dbName);
+  }
+
+  async close() {
+    await this.client.close();
+  }
+
+  getCollection(collectionName: string) {
+    return this.client.db(this.dbName).collection(collectionName);
+  }
+{% endif %}
+}
+{% endif %}

@@ -6,6 +6,12 @@ echo "Starting Backstage..."
 # Kill existing processes if any
 ./stop.sh 2>/dev/null || true
 
+# Load environment variables from .env file
+if [ -f .env ]; then
+  export $(cat .env | grep -v '^#' | xargs)
+  echo "✓ Loaded environment variables from .env"
+fi
+
 # Start Backstage in background and save PID
 nohup yarn start > backstage.log 2>&1 &
 echo $! > .backstage.pid

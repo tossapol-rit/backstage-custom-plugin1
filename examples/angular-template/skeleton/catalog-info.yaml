@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - angular
+    - angular-${{ values.angularVersion }}
+    {% if values.database != 'none' -%}
+    - ${{ values.database }}
+    {%- endif %}
+    {% if values.enableVault -%}
+    - vault
+    {%- endif %}
+spec:
+  type: website
+  lifecycle: experimental
+  owner: user:guest
+  system: examples

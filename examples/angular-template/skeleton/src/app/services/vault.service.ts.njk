@@ -1,0 +1,82 @@
+{% if values.enableVault %}
+import { Injectable } from '@angular/core';
+import axios from 'axios';
+
+export interface VaultSecret {
+  [key: string]: any;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class VaultService {
+  private vaultUrl: string;
+  private vaultToken: string;
+
+  constructor() {
+    this.vaultUrl = '${{ values.vaultAddr }}';
+    this.vaultToken = '${{ values.vaultToken }}';
+  }
+
+  private getHeaders() {
+    return {
+      'X-Vault-Token': this.vaultToken,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async readSecret(path: string): Promise<VaultSecret | null> {
+    try {
+      const response = await axios.get(
+        `${this.vaultUrl}/v1/secret/data/${path}`,
+        { headers: this.getHeaders() }
+      );
+      return response.data.data.data;
+    } catch (error) {
+      console.error(`Failed to read secret from path: ${path}`, error);
+      return null;
+    }
+  }
+
+  async writeSecret(path: string, data: VaultSecret): Promise<boolean> {
+    try {
+      await axios.post(
+        `${this.vaultUrl}/v1/secret/data/${path}`,
+        { data },
+        { headers: this.getHeaders() }
+      );
+      return true;
+    } catch (error) {
+      console.error(`Failed to write secret to path: ${path}`, error);
+      return false;
+    }
+  }
+
+  async deleteSecret(path: string): Promise<boolean> {
+    try {
+      await axios.delete(
+        `${this.vaultUrl}/v1/secret/data/${path}`,
+        { headers: this.getHeaders() }
+      );
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete secret at path: ${path}`, error);
+      return false;
+    }
+  }
+
+  async listSecrets(path: string): Promise<string[]> {
+    try {
+      const response = await axios.request({
+        method: 'LIST',
+        url: `${this.vaultUrl}/v1/secret/metadata/${path}`,
+        headers: this.getHeaders()
+      });
+      return response.data.data.keys || [];
+    } catch (error) {
+      console.error(`Failed to list secrets at path: ${path}`, error);
+      return [];
+    }
+  }
+}
+{% endif %}

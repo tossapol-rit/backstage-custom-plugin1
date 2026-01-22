@@ -1,0 +1,45 @@
+{
+  "name": "${{ values.name }}",
+  "version": "0.0.1",
+  "description": "${{ values.description }}",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "^${{ values.angularVersion }}.0.0",
+    "@angular/common": "^${{ values.angularVersion }}.0.0",
+    "@angular/compiler": "^${{ values.angularVersion }}.0.0",
+    "@angular/core": "^${{ values.angularVersion }}.0.0",
+    "@angular/forms": "^${{ values.angularVersion }}.0.0",
+    "@angular/platform-browser": "^${{ values.angularVersion }}.0.0",
+    "@angular/platform-browser-dynamic": "^${{ values.angularVersion }}.0.0",
+    "@angular/router": "^${{ values.angularVersion }}.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.0"
+    {% if values.database == 'postgresql' or values.database == 'mysql' -%}
+    ,
+    "pg": "^8.11.0"
+    {%- endif %}
+    {% if values.database == 'mongodb' -%}
+    ,
+    "mongodb": "^6.3.0"
+    {%- endif %}
+    {% if values.enableVault -%}
+    ,
+    "node-vault": "^0.10.2"
+    {%- endif %}
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^${{ values.angularVersion }}.0.0",
+    "@angular/cli": "^${{ values.angularVersion }}.0.0",
+    "@angular/compiler-cli": "^${{ values.angularVersion }}.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "~5.3.0"
+  }
+}

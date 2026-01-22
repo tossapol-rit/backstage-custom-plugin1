@@ -1,0 +1,66 @@
+name: Initialize Vault Secrets
+
+# This workflow is for manual initialization only
+# Vault must be publicly accessible for this to work
+on:
+  workflow_dispatch:
+    inputs:
+      vault_addr:
+        description: 'Vault Address (must be publicly accessible)'
+        required: true
+        default: 'https://vault.example.com'
+      vault_token:
+        description: 'Vault Token'
+        required: true
+
+{% if values.enableVault -%}
+jobs:
+  init-vault:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Validate Vault connectivity
+        run: |
+          if ! curl -s -f -H "X-Vault-Token: {% raw %}${{ github.event.inputs.vault_token }}{% endraw %}" "{% raw %}${{ github.event.inputs.vault_addr }}{% endraw %}/v1/sys/health" > /dev/null 2>&1; then
+            echo "❌ Error: Cannot connect to Vault"
+            echo "Make sure Vault is publicly accessible from GitHub Actions"
+            exit 1
+          fi
+
+      - name: Make vault-init.sh executable
+        run: chmod +x vault-init.sh
+
+      - name: Initialize Vault secrets
+        env:
+          VAULT_ADDR: {% raw %}${{ github.event.inputs.vault_addr }}{% endraw %}
+          VAULT_TOKEN: {% raw %}${{ github.event.inputs.vault_token }}{% endraw %}
+        run: |
+          # Override variables for manual run
+          sed -i 's|VAULT_ADDR=.*|VAULT_ADDR="'"$VAULT_ADDR"'"|' vault-init.sh
+          sed -i 's|VAULT_TOKEN=.*|VAULT_TOKEN="'"$VAULT_TOKEN"'"|' vault-init.sh
+          ./vault-init.sh
+
+      - name: Success notification
+        if: success()
+        run: echo "✅ Vault secrets initialized successfully"
+
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "❌ Failed to initialize Vault secrets"
+          echo "Please run vault-init.sh manually on your local machine"
+{%- else -%}
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vault not enabled
+        run: echo "Vault is not enabled for this project"
+{%- endif %}

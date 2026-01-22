@@ -49,6 +49,15 @@ site
 # vscode database functionality support files
 *.session.sql
 
+# SQLite database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Database directory
+/data/
+
 # E2E test reports
 e2e-test-report/
 

@@ -1,0 +1,32 @@
+<div style="text-align:center; padding: 50px;">
+  <h1>Welcome to {{ title }}!</h1>
+  <p>{{ description }}</p>
+  
+  <div style="margin-top: 30px;">
+    <h2>Configuration</h2>
+    <ul style="list-style: none; padding: 0;">
+      <li><strong>Angular Version:</strong> {{ angularVersion }}</li>
+      {% if values.database != 'none' -%}
+      <li><strong>Database:</strong> {{ database }}</li>
+      {%- endif %}
+      {% if values.enableVault -%}
+      <li><strong>Vault Integration:</strong> Enabled</li>
+      {%- endif %}
+    </ul>
+  </div>
+
+  <div style="margin-top: 30px;">
+    <h2>Next Steps</h2>
+    <ul style="text-align: left; display: inline-block;">
+      <li>Run <code>npm install</code> to install dependencies</li>
+      <li>Run <code>npm start</code> to start the development server</li>
+      {% if values.database != 'none' -%}
+      <li>Configure your database connection in environment files</li>
+      {%- endif %}
+      {% if values.enableVault -%}
+      <li>Set up Vault environment variables</li>
+      {%- endif %}
+      <li>Start building your application!</li>
+    </ul>
+  </div>
+</div>
