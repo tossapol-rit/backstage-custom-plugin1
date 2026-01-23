@@ -23,6 +23,9 @@ backend.add(
 // Custom scaffolder actions
 backend.add(import('./scaffolder/module'));
 
+// Custom vault plugin
+backend.add(import('./plugins/vault'));
+
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
 

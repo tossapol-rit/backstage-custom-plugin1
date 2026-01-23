@@ -1,0 +1,162 @@
+# Configuration Guide
+
+## Overview
+
+This Angular application uses a secure configuration management system that integrates with HashiCorp Vault for secrets management.
+
+## Configuration Architecture
+
+```
+Angular App → ConfigService → Backend API → Vault
+```
+
+### Key Files:
+
+1. **config.service.ts** - Main configuration service
+2. **environment.ts** - Development environment settings
+3. **environment.prod.ts** - Production environment settings
+4. **database.service.ts** - Database service using ConfigService
+
+## How It Works
+
+### Development Mode
+
+- Configuration loaded from `environment.ts`
+- Database credentials can be hardcoded for local development
+- Vault integration optional
+
+### Production Mode
+
+- All secrets fetched from Vault via backend API
+- No sensitive data in code or environment files
+- ConfigService loads configuration at app startup
+
+## Usage in Components/Services
+
+### Get Database Configuration
+
+```typescript
+import { ConfigService } from './services/config.service';
+
+constructor(private configService: ConfigService) {}
+
+async ngOnInit() {
+  const dbConfig = this.configService.getDatabaseConfig();
+  console.log('Database:', dbConfig?.database);
+}
+```
+
+### Get API Keys
+
+```typescript
+const apiKey = this.configService.getApiKey('api_key');
+```
+
+### Check Environment
+
+```typescript
+if (this.configService.isProduction()) {
+  // Production-only code
+}
+```
+
+## Vault Secrets Structure
+
+Secrets are stored in Vault at:
+```
+secret/data/apps/{environment}/{app-name}
+```
+
+### Example Secrets:
+
+```json
+{
+  "database_host": "prod-db.example.com",
+  "database_port": "5432",
+  "database_name": "myapp_prod",
+  "database_username": "app_user",
+  "database_password": "secure_password",
+  "database_ssl": "true",
+  "api_key": "production-api-key",
+  "jwt_secret": "jwt-signing-secret"
+}
+```
+
+## Backend API (Required for Production)
+
+You need to implement a backend API endpoint that:
+
+1. Authenticates the Angular app
+2. Fetches secrets from Vault
+3. Returns configuration to the app
+
+### Example Backend Endpoint (Node.js/Express):
+
+```typescript
+app.get('/api/config', async (req, res) => {
+  // Verify authentication
+  const token = req.headers.authorization;
+  
+  // Fetch from Vault
+  const secrets = await vault.read('secret/data/apps/prod/myapp');
+  
+  // Return sanitized config
+  res.json({
+    production: true,
+    environment: 'production',
+    database: {
+      host: secrets.database_host,
+      port: secrets.database_port,
+      database: secrets.database_name,
+      username: secrets.database_username,
+      password: secrets.database_password,
+      ssl: secrets.database_ssl === 'true'
+    },
+    apiKeys: {
+      api_key: secrets.api_key
+    }
+  });
+});
+```
+
+## Environment Variables
+
+Development:
+{% if values.database != 'none' %}
+- `DB_HOST`: ${{ values.databaseHost }}
+- `DB_PORT`: ${{ values.databasePort }}
+- `DB_NAME`: ${{ values.databaseName or values.name }}
+- `DB_USER`: ${{ values.databaseUsername }}
+- `DB_PASSWORD`: [stored in Vault]
+{% endif %}
+
+Production:
+- All values loaded from Vault at runtime
+
+## Security Best Practices
+
+1. ✅ Never commit secrets to Git
+2. ✅ Use Vault for all environments except local dev
+3. ✅ Rotate secrets regularly
+4. ✅ Use different secrets per environment
+5. ✅ Implement proper authentication for config API
+6. ✅ Enable SSL/TLS for database connections in production
+7. ✅ Use connection pooling for better performance
+
+## Troubleshooting
+
+### Config not loading
+
+Check that:
+- Backend API is running and accessible
+- Vault is accessible from backend
+- Correct Vault path: `secret/data/apps/{env}/{app-name}`
+
+### Database connection fails
+
+Verify:
+- Secrets are correct in Vault
+- Network connectivity to database
+- SSL configuration matches environment
+
+For more information, see: https://backstage.io

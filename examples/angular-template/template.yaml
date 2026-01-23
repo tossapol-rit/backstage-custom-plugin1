@@ -74,8 +74,49 @@ spec:
           type: string
           description: Name of the database (leave empty to use project name)
           ui:help: 'Only used if database type is selected'
+        databaseHost:
+          title: Database Host
+          type: string
+          description: Database server hostname
+          default: 'localhost'
+          ui:help: 'For development. Production value will be stored in Vault'
+        databasePort:
+          title: Database Port
+          type: string
+          description: Database server port
+          default: '5432'
+          ui:help: 'Default ports: PostgreSQL(5432), MySQL(3306), MongoDB(27017)'
+        databaseUsername:
+          title: Database Username
+          type: string
+          description: Database user for development
+          default: 'postgres'
+          ui:help: 'Production credentials will be stored in Vault'
+        databasePassword:
+          title: Database Password
+          type: string
+          description: Database password (will be stored in Vault)
+          ui:widget: password
+          default: 'postgres'
+        databaseSSL:
+          title: Enable SSL/TLS
+          type: boolean
+          description: Use SSL connection for database
+          default: false
+          ui:help: 'Should be enabled for production'
 
     - title: Vault Integration
+      description: |
+        Secrets will be automatically created in Vault from your database configuration.
+        
+        The following secrets will be stored:
+        - database_host, database_port, database_name
+        - database_username, database_password, database_ssl
+        - database_type
+        - api_key (auto-generated)
+        - jwt_secret (auto-generated)
+        
+        You can view and modify these in Vault UI after creation.
       properties:
         enableVault:
           title: Enable Vault Integration
@@ -87,21 +128,12 @@ spec:
           type: string
           description: HashiCorp Vault server address
           default: 'http://localhost:8200'
-          ui:help: 'Only used if Vault is enabled'
         vaultToken:
           title: Vault Token
           type: string
-          description: Vault access token
+          description: Vault access token (use 'myroot' for local development)
+          ui:widget: password
           default: 'myroot'
-          ui:help: 'Only used if Vault is enabled'
-        vaultSecrets:
-          title: Initial Secrets
-          type: string
-          description: Initial secrets to create in Vault (JSON format, e.g., {"db_password":"secret123","api_key":"key456"})
-          ui:widget: textarea
-          ui:options:
-            rows: 5
-          ui:help: 'Only used if Vault is enabled. Secrets will be stored at secret/data/apps/[project-name]'
 
     - title: Choose a location
       required:
@@ -128,7 +160,14 @@ spec:
           description: ${{ parameters.description }}
           angularVersion: ${{ parameters.angularVersion }}
           database: ${{ parameters.database }}
+          databaseName: ${{ parameters.databaseName if parameters.databaseName else parameters.name }}
+          databaseHost: ${{ parameters.databaseHost }}
+          databasePort: ${{ parameters.databasePort }}
+          databaseUsername: ${{ parameters.databaseUsername }}
+          databasePassword: ${{ parameters.databasePassword }}
+          databaseSSL: ${{ parameters.databaseSSL }}
           enableVault: ${{ parameters.enableVault }}
+          vaultAddr: ${{ parameters.vaultAddr }}
           owner: ${{ parameters.repoUrl | parseRepoUrl | pick('owner') }}
           repo: ${{ parameters.repoUrl | parseRepoUrl | pick('repo') }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
@@ -145,11 +184,23 @@ spec:
     - id: create-vault-secrets
       name: Create Vault Secrets
       action: vault:create-secrets
+      if: ${{ parameters.enableVault }}
       input:
         vaultAddr: ${{ parameters.vaultAddr if parameters.vaultAddr else 'http://localhost:8200' }}
         vaultToken: ${{ parameters.vaultToken if parameters.vaultToken else 'myroot' }}
-        secretPath: apps/${{ parameters.name }}
-        secrets: ${{ parameters.vaultSecrets if parameters.enableVault and parameters.vaultSecrets else '' }}
+        secretPath: ${{ parameters.name }}
+        secrets: |
+          {
+            "database_host": "${{ parameters.databaseHost }}",
+            "database_port": "${{ parameters.databasePort }}",
+            "database_name": "${{ parameters.databaseName if parameters.databaseName else parameters.name }}",
+            "database_username": "${{ parameters.databaseUsername }}",
+            "database_password": "${{ parameters.databasePassword }}",
+            "database_ssl": "${{ parameters.databaseSSL }}",
+            "database_type": "${{ parameters.database }}",
+            "api_key": "dev-api-key-${{ parameters.name }}",
+            "jwt_secret": "jwt-secret-${{ parameters.name }}-change-in-production"
+          }
 
     - id: register
       name: Register Component
@@ -165,3 +216,5 @@ spec:
       - title: Open in catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
+      - title: Vault Secrets
+        url: ${{ parameters.vaultAddr }}/ui/vault/secrets/secret/kv/apps%2Fdev%2F${{ parameters.name }}

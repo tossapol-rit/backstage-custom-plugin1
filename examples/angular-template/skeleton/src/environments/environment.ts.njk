@@ -1,0 +1,34 @@
+export const environment = {
+  production: false,
+  environment: 'development',
+  vaultEnabled: ${{ values.enableVault }},
+  
+  // Backend API endpoints
+  apiUrl: 'http://localhost:3000/api',
+  
+  // Vault configuration (for development only)
+  vault: {
+    address: '${{ values.vaultAddr }}',
+    // Never include token in production!
+  },
+
+{% if values.database != 'none' %}
+  // Database configuration for development
+  // Production values should come from ConfigService via backend API
+  database: {
+    type: '${{ values.database }}',
+    host: '${{ values.databaseHost }}',
+    port: ${{ values.databasePort }},
+    database: '${{ values.databaseName or values.name }}',
+    username: '${{ values.databaseUsername }}',
+    // Password should never be hardcoded - loaded via ConfigService
+    ssl: ${{ values.databaseSSL }}
+  },
+{% endif %}
+
+  // Feature flags
+  features: {
+    enableLogging: true,
+    enableDebug: true
+  }
+};

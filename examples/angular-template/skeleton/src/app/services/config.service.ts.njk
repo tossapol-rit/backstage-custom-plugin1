@@ -1,0 +1,124 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+
+export interface DatabaseConfig {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  ssl: boolean;
+  type: 'postgresql' | 'mysql' | 'mongodb' | 'none';
+}
+
+export interface AppConfig {
+  production: boolean;
+  environment: string;
+  vaultEnabled: boolean;
+  database?: DatabaseConfig;
+  apiKeys?: {
+    [key: string]: string;
+  };
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ConfigService {
+  private config: AppConfig | null = null;
+  private configLoaded = false;
+
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Load configuration from backend API
+   * This should be called during app initialization
+   */
+  async loadConfig(): Promise<AppConfig> {
+    if (this.configLoaded && this.config) {
+      return this.config;
+    }
+
+    try {
+      // In production, this should call your backend API
+      // that securely fetches secrets from Vault
+      const config = await firstValueFrom(
+        this.http.get<AppConfig>('/api/config')
+      );
+      
+      this.config = config;
+      this.configLoaded = true;
+      
+      console.log('Configuration loaded successfully');
+      return config;
+    } catch (error) {
+      console.error('Failed to load configuration:', error);
+      
+      // Fallback to environment variables for development
+      this.config = this.getDefaultConfig();
+      this.configLoaded = true;
+      
+      return this.config;
+    }
+  }
+
+  /**
+   * Get database configuration
+   */
+  getDatabaseConfig(): DatabaseConfig | undefined {
+    return this.config?.database;
+  }
+
+  /**
+   * Get API key by name
+   */
+  getApiKey(keyName: string): string | undefined {
+    return this.config?.apiKeys?.[keyName];
+  }
+
+  /**
+   * Check if running in production
+   */
+  isProduction(): boolean {
+    return this.config?.production || false;
+  }
+
+  /**
+   * Get current environment name
+   */
+  getEnvironment(): string {
+    return this.config?.environment || 'development';
+  }
+
+  /**
+   * Get full config object
+   */
+  getConfig(): AppConfig | null {
+    return this.config;
+  }
+
+  /**
+   * Default configuration for development
+   * In production, values should come from Vault via backend API
+   */
+  private getDefaultConfig(): AppConfig {
+    return {
+      production: false,
+      environment: 'development',
+      vaultEnabled: false,
+{% if values.database != 'none' %}
+      database: {
+        type: '${{ values.database }}',
+        host: '${{ values.databaseHost }}',
+        port: ${{ values.databasePort }},
+        database: '${{ values.databaseName or values.name }}',
+        username: '${{ values.databaseUsername }}',
+        password: '${{ values.databasePassword }}',
+        ssl: ${{ values.databaseSSL }}
+      },
+{% endif %}
+      apiKeys: {}
+    };
+  }
+}

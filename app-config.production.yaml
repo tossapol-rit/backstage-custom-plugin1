@@ -1,6 +1,12 @@
 app:
   # Should be the same as backend.baseUrl when using the `app-backend` plugin.
   baseUrl: http://localhost:7007
+  environment: production  # Production environment - secret values will be hidden
+
+# HashiCorp Vault Configuration for Production
+vault:
+  address: ${VAULT_ADDR}  # Set via environment variable
+  token: ${VAULT_TOKEN}   # Set via environment variable (use proper auth method in production)
 
 backend:
   # Note that the baseUrl should be the URL that the browser and other clients

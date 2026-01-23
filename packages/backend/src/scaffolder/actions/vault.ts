@@ -61,13 +61,18 @@ export const createVaultSecretsAction = () => {
 
       ctx.logger.info(`Creating secrets in Vault at ${secretPath}`);
       ctx.logger.info(`Vault Address: ${vaultAddr}`);
-      ctx.logger.info(`Vault Token length: ${vaultToken.length}, Token (first 5 chars): ${vaultToken.substring(0, 5)}...`);
-      ctx.logger.info(`Vault Token FULL VALUE: "${vaultToken}"`);
       ctx.logger.info(`Secrets to create: ${JSON.stringify(secrets)}`);
+
+      // Best Practice: Always create initial secrets in 'dev' environment
+      // Production/QA/UAT secrets should be created separately with different values
+      const environment = 'dev';
+      const fullSecretPath = `secret/data/apps/${environment}/${secretPath}`;
+      
+      ctx.logger.info(`Creating initial secrets in development environment: ${fullSecretPath}`);
 
       try {
         const response = await fetch(
-          `${vaultAddr}/v1/secret/data/${secretPath}`,
+          `${vaultAddr}/v1/${fullSecretPath}`,
           {
             method: 'POST',
             headers: {

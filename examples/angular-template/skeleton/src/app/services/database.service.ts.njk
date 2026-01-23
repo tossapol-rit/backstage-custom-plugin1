@@ -1,5 +1,6 @@
 {% if values.database != 'none' %}
 import { Injectable } from '@angular/core';
+import { ConfigService, DatabaseConfig } from './config.service';
 {% if values.database == 'postgresql' %}
 import { Pool } from 'pg';
 {% elif values.database == 'mysql' %}
@@ -13,20 +14,39 @@ import { MongoClient } from 'mongodb';
 })
 export class DatabaseService {
 {% if values.database == 'postgresql' %}
-  private pool: Pool;
+  private pool: Pool | null = null;
 
-  constructor() {
-    this.pool = new Pool({
-      host: process.env['DB_HOST'] || 'localhost',
-      port: parseInt(process.env['DB_PORT'] || '5432'),
-      database: process.env['DB_NAME'] || '${{ values.databaseName or values.name }}',
-      user: process.env['DB_USER'] || 'postgres',
-      password: process.env['DB_PASSWORD'] || 'postgres'
-    });
+  constructor(private configService: ConfigService) {}
+
+  private async getPool(): Promise<Pool> {
+    if (!this.pool) {
+      const dbConfig = this.configService.getDatabaseConfig();
+      
+      if (!dbConfig) {
+        throw new Error('Database configuration not loaded');
+      }
+
+      this.pool = new Pool({
+        host: dbConfig.host,
+        port: dbConfig.port,
+        database: dbConfig.database,
+        user: dbConfig.username,
+        password: dbConfig.password,
+        ssl: dbConfig.ssl ? { rejectUnauthorized: true } : false,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
+      });
+
+      console.log(`PostgreSQL pool created for ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
+    }
+    
+    return this.pool;
   }
 
   async query(text: string, params?: any[]) {
-    const client = await this.pool.connect();
+    const pool = await this.getPool();
+    const client = await pool.connect();
     try {
       const result = await client.query(text, params);
       return result.rows;
@@ -36,50 +56,131 @@ export class DatabaseService {
   }
 
   async close() {
-    await this.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.query('SELECT 1');
+      return true;
+    } catch (error) {
+      console.error('Database health check failed:', error);
+      return false;
+    }
   }
 {% elif values.database == 'mysql' %}
-  private pool: mysql.Pool;
+  private pool: mysql.Pool | null = null;
 
-  constructor() {
-    this.pool = mysql.createPool({
-      host: process.env['DB_HOST'] || 'localhost',
-      port: parseInt(process.env['DB_PORT'] || '3306'),
-      database: process.env['DB_NAME'] || '${{ values.databaseName or values.name }}',
-      user: process.env['DB_USER'] || 'root',
-      password: process.env['DB_PASSWORD'] || 'password'
-    });
+  constructor(private configService: ConfigService) {}
+
+  private async getPool(): Promise<mysql.Pool> {
+    if (!this.pool) {
+      const dbConfig = this.configService.getDatabaseConfig();
+      
+      if (!dbConfig) {
+        throw new Error('Database configuration not loaded');
+      }
+
+      this.pool = mysql.createPool({
+        host: dbConfig.host,
+        port: dbConfig.port,
+        database: dbConfig.database,
+        user: dbConfig.username,
+        password: dbConfig.password,
+        ssl: dbConfig.ssl ? {} : undefined,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+      });
+
+      console.log(`MySQL pool created for ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
+    }
+    
+    return this.pool;
   }
 
   async query(sql: string, values?: any[]) {
-    const [rows] = await this.pool.execute(sql, values);
+    const pool = await this.getPool();
+    const [rows] = await pool.execute(sql, values);
     return rows;
   }
 
   async close() {
-    await this.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.query('SELECT 1');
+      return true;
+    } catch (error) {
+      console.error('Database health check failed:', error);
+      return false;
+    }
   }
 {% elif values.database == 'mongodb' %}
-  private client: MongoClient;
-  private dbName: string;
+  private client: MongoClient | null = null;
+  private dbName: string = '';
 
-  constructor() {
-    const uri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017';
-    this.dbName = process.env['DB_NAME'] || '${{ values.databaseName or values.name }}';
-    this.client = new MongoClient(uri);
+  constructor(private configService: ConfigService) {}
+
+  private async getClient(): Promise<MongoClient> {
+    if (!this.client) {
+      const dbConfig = this.configService.getDatabaseConfig();
+      
+      if (!dbConfig) {
+        throw new Error('Database configuration not loaded');
+      }
+
+      // Build MongoDB connection string
+      const auth = dbConfig.username && dbConfig.password 
+        ? `${dbConfig.username}:${dbConfig.password}@` 
+        : '';
+      const sslParam = dbConfig.ssl ? '?ssl=true' : '';
+      const uri = `mongodb://${auth}${dbConfig.host}:${dbConfig.port}${sslParam}`;
+      
+      this.dbName = dbConfig.database;
+      this.client = new MongoClient(uri);
+      
+      await this.client.connect();
+      console.log(`MongoDB connected to ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
+    }
+    
+    return this.client;
   }
 
   async connect() {
-    await this.client.connect();
-    return this.client.db(this.dbName);
+    const client = await this.getClient();
+    return client.db(this.dbName);
   }
 
   async close() {
-    await this.client.close();
+    if (this.client) {
+      await this.client.close();
+      this.client = null;
+    }
   }
 
-  getCollection(collectionName: string) {
-    return this.client.db(this.dbName).collection(collectionName);
+  async getCollection(collectionName: string) {
+    const client = await this.getClient();
+    return client.db(this.dbName).collection(collectionName);
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      const client = await this.getClient();
+      await client.db(this.dbName).admin().ping();
+      return true;
+    } catch (error) {
+      console.error('Database health check failed:', error);
+      return false;
+    }
   }
 {% endif %}
 }

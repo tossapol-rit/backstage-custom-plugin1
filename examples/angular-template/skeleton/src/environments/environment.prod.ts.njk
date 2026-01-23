@@ -1,0 +1,26 @@
+export const environment = {
+  production: true,
+  environment: 'production',
+  vaultEnabled: ${{ values.enableVault }},
+  
+  // Backend API endpoints - should be configured via deployment
+  apiUrl: '/api',
+  
+  // All sensitive configuration should come from ConfigService
+  // which fetches from backend API that connects to Vault
+  
+{% if values.database != 'none' %}
+  // Database configuration placeholder
+  // Actual values loaded from Vault via ConfigService
+  database: {
+    type: '${{ values.database }}',
+    // All connection details loaded at runtime from Vault
+  },
+{% endif %}
+
+  // Feature flags
+  features: {
+    enableLogging: false,
+    enableDebug: false
+  }
+};

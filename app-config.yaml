@@ -1,9 +1,15 @@
 app:
   title: Scaffolded Backstage App
   baseUrl: http://localhost:3000
+  environment: development  # Options: development, dev, qa, uat, production
 
 organization:
   name: My Company
+
+# HashiCorp Vault Configuration
+vault:
+  address: http://localhost:8200
+  token: ${VAULT_TOKEN}  # Set in environment variable or use default 'myroot' for dev
 
 backend:
   # Used for enabling authentication, secret is shared by all backend plugins

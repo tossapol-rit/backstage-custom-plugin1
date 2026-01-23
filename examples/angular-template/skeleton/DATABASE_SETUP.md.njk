@@ -1,0 +1,188 @@
+{% if values.database != 'none' %}
+# Database Setup Guide
+
+## Database Type: {{ values.database | upper }}
+
+### Development Configuration
+
+Connection details for local development:
+
+- **Host**: {{ values.databaseHost }}
+- **Port**: {{ values.databasePort }}
+- **Database**: {{ values.databaseName or values.name }}
+- **Username**: {{ values.databaseUsername }}
+- **Password**: [stored in Vault]
+- **SSL**: {{ 'Enabled' if values.databaseSSL else 'Disabled' }}
+
+{% if values.database == 'postgresql' %}
+### PostgreSQL Setup
+
+#### Install PostgreSQL (macOS):
+```bash
+brew install postgresql
+brew services start postgresql
+```
+
+#### Create Database:
+```bash
+createdb {{ values.databaseName or values.name }}
+```
+
+#### Create User (if needed):
+```sql
+CREATE USER {{ values.databaseUsername }} WITH PASSWORD '{{ values.databasePassword }}';
+GRANT ALL PRIVILEGES ON DATABASE {{ values.databaseName or values.name }} TO {{ values.databaseUsername }};
+```
+
+#### Test Connection:
+```bash
+psql -h {{ values.databaseHost }} -p {{ values.databasePort }} -U {{ values.databaseUsername }} -d {{ values.databaseName or values.name }}
+```
+
+{% elif values.database == 'mysql' %}
+### MySQL Setup
+
+#### Install MySQL (macOS):
+```bash
+brew install mysql
+brew services start mysql
+```
+
+#### Create Database:
+```bash
+mysql -u root -p
+```
+```sql
+CREATE DATABASE {{ values.databaseName or values.name }};
+CREATE USER '{{ values.databaseUsername }}'@'localhost' IDENTIFIED BY '{{ values.databasePassword }}';
+GRANT ALL PRIVILEGES ON {{ values.databaseName or values.name }}.* TO '{{ values.databaseUsername }}'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+#### Test Connection:
+```bash
+mysql -h {{ values.databaseHost }} -P {{ values.databasePort }} -u {{ values.databaseUsername }} -p{{ values.databasePassword }} {{ values.databaseName or values.name }}
+```
+
+{% elif values.database == 'mongodb' %}
+### MongoDB Setup
+
+#### Install MongoDB (macOS):
+```bash
+brew tap mongodb/brew
+brew install mongodb-community
+brew services start mongodb-community
+```
+
+#### Create Database and User:
+```bash
+mongosh
+```
+```javascript
+use {{ values.databaseName or values.name }}
+db.createUser({
+  user: "{{ values.databaseUsername }}",
+  pwd: "{{ values.databasePassword }}",
+  roles: [{ role: "readWrite", db: "{{ values.databaseName or values.name }}" }]
+})
+```
+
+#### Test Connection:
+```bash
+mongosh "mongodb://{{ values.databaseUsername }}:{{ values.databasePassword }}@{{ values.databaseHost }}:{{ values.databasePort }}/{{ values.databaseName or values.name }}"
+```
+{% endif %}
+
+### Using Database Service in Angular
+
+The DatabaseService is automatically configured to use values from ConfigService:
+
+```typescript
+import { DatabaseService } from './services/database.service';
+
+constructor(private db: DatabaseService) {}
+
+async getData() {
+{% if values.database == 'postgresql' or values.database == 'mysql' %}
+  const rows = await this.db.query('SELECT * FROM users');
+  console.log(rows);
+{% elif values.database == 'mongodb' %}
+  const collection = await this.db.getCollection('users');
+  const users = await collection.find({}).toArray();
+  console.log(users);
+{% endif %}
+}
+
+// Health check
+async checkDatabase() {
+  const isHealthy = await this.db.healthCheck();
+  console.log('Database is', isHealthy ? 'healthy' : 'unhealthy');
+}
+```
+
+### Production Configuration
+
+In production, database credentials should be stored in Vault:
+
+```bash
+# Via Backstage (automatic during scaffolding)
+# Or manually:
+vault kv put secret/apps/prod/{{ values.name }} \
+  database_host="prod-db.example.com" \
+  database_port="{{ values.databasePort }}" \
+  database_name="{{ values.databaseName or values.name }}_prod" \
+  database_username="prod_user" \
+  database_password="secure_production_password" \
+  database_ssl="true"
+```
+
+### Environment-specific Secrets
+
+Secrets should be separated by environment:
+
+- **Development**: `secret/apps/dev/{{ values.name }}`
+- **QA**: `secret/apps/qa/{{ values.name }}`
+- **UAT**: `secret/apps/uat/{{ values.name }}`
+- **Production**: `secret/apps/prod/{{ values.name }}`
+
+### Security Best Practices
+
+1. ✅ Use SSL/TLS in production
+2. ✅ Use connection pooling (already configured)
+3. ✅ Set appropriate timeouts
+4. ✅ Never commit database passwords
+5. ✅ Use read-only users when possible
+6. ✅ Implement health checks
+7. ✅ Monitor connection pool metrics
+
+### Troubleshooting
+
+#### Cannot connect to database
+
+1. Check database is running:
+{% if values.database == 'postgresql' %}
+   ```bash
+   pg_isready -h {{ values.databaseHost }} -p {{ values.databasePort }}
+   ```
+{% elif values.database == 'mysql' %}
+   ```bash
+   mysqladmin ping -h {{ values.databaseHost }} -P {{ values.databasePort }}
+   ```
+{% elif values.database == 'mongodb' %}
+   ```bash
+   mongosh --eval "db.adminCommand('ping')" "mongodb://{{ values.databaseHost }}:{{ values.databasePort }}"
+   ```
+{% endif %}
+
+2. Verify credentials in Vault
+3. Check network connectivity
+4. Review firewall rules
+
+#### Connection pool exhausted
+
+- Increase pool size in database.service.ts
+- Check for connection leaks
+- Implement connection timeout
+
+For more help, see the CONFIG_GUIDE.md
+{% endif %}
