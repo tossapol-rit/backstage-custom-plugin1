@@ -1,0 +1,225 @@
+---
+# Database Resource
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-database
+  description: {% if values.database != 'none' %}${{ values.database | capitalize }}{% else %}PostgreSQL{% endif %} database for ${{ values.name }}
+  tags:
+    - database
+    {% if values.database != 'none' -%}
+    - ${{ values.database }}
+    {%- else -%}
+    - postgresql
+    {%- endif %}
+spec:
+  type: database
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+
+---
+# Cache Resource (Redis)
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-cache
+  description: Redis cache for ${{ values.name }}
+  tags:
+    - cache
+    - redis
+spec:
+  type: cache
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+
+---
+# Object Storage Resource (S3/MinIO)
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-storage
+  description: Object storage for files, images, and documents
+  tags:
+    - storage
+    - s3
+    - object-storage
+spec:
+  type: storage
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+
+---
+# Backend API Component
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}-api
+  description: Backend API service for ${{ values.name }}
+  tags:
+    - api
+    - backend
+    - nodejs
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+  dependsOn:
+    - resource:default/${{ values.name }}-database
+    - resource:default/${{ values.name }}-cache
+    - resource:default/${{ values.name }}-storage
+  consumesApis:
+    - ${{ values.name }}-auth-api
+  providesApis:
+    - ${{ values.name }}-rest-api
+
+---
+# Authentication Service Component
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}-auth
+  description: Authentication and authorization service for ${{ values.name }}
+  tags:
+    - auth
+    - authentication
+    - security
+    - nodejs
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+  dependsOn:
+    - resource:default/${{ values.name }}-database
+    - resource:default/${{ values.name }}-cache
+  providesApis:
+    - ${{ values.name }}-auth-api
+
+---
+# REST API Definition
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.name }}-rest-api
+  description: REST API for ${{ values.name }}
+  tags:
+    - rest
+    - api
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: ${{ values.name }} API
+      version: 1.0.0
+      description: REST API for ${{ values.name }} application
+    paths:
+      /api/health:
+
+---
+# Authentication API Definition
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.name }}-auth-api
+  description: Authentication API for ${{ values.name }}
+  tags:
+    - auth
+    - api
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: user:guest
+  system: examples
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: ${{ values.name }} Authentication API
+      version: 1.0.0
+      description: Authentication and authorization API
+    paths:
+      /auth/login:
+        post:
+          summary: User login
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                    password:
+                      type: string
+          responses:
+            '200':
+              description: Login successful
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      user:
+                        type: object
+      /auth/register:
+        post:
+          summary: User registration
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                    password:
+                      type: string
+                    name:
+                      type: string
+          responses:
+            '201':
+              description: Registration successful
+      /auth/verify:
+        get:
+          summary: Verify token
+          security:
+            - bearerAuth: []
+          responses:
+            '200':
+              description: Token is valid
+        get:
+          summary: Health check
+          responses:
+            '200':
+              description: Service is healthy
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+      /api/data:
+        get:
+          summary: Get data
+          responses:
+            '200':
+              description: Successful response
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      type: object

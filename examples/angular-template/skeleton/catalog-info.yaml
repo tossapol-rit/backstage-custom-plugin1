@@ -20,3 +20,12 @@ spec:
   lifecycle: experimental
   owner: user:guest
   system: examples
+  dependsOn:
+    - resource:default/${{ values.name }}-database
+    - resource:default/${{ values.name }}-cache
+    - resource:default/${{ values.name }}-storage
+    - component:default/${{ values.name }}-api
+    - component:default/${{ values.name }}-auth
+  consumesApis:
+    - ${{ values.name }}-rest-api
+    - ${{ values.name }}-auth-api

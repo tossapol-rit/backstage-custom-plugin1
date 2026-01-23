@@ -12,12 +12,43 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: example-website
+  annotations:
+    github.com/project-slug: backstage/backstage
 spec:
   type: website
   lifecycle: experimental
   owner: guests
   system: examples
   providesApis: [example-grpc-api]
+---
+# Example component with GitHub Actions for angular2
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: angular2
+  annotations:
+    github.com/project-slug: angular/angular
+spec:
+  type: website
+  lifecycle: experimental
+  owner: user-guest
+  system: examples
+  dependsOn:
+    - component:default/example-website
+    - resource:default/angular2-database
+  consumesApis:
+    - example-grpc-api
+---
+# Database resource for angular2
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: angular2-database
+spec:
+  type: database
+  lifecycle: experimental
+  owner: user-guest
+  system: examples
 ---
 # https://backstage.io/docs/features/software-catalog/descriptor-format#kind-api
 apiVersion: backstage.io/v1alpha1

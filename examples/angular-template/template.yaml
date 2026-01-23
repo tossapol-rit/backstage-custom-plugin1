@@ -209,6 +209,13 @@ spec:
         repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
 
+    - id: register-dependencies
+      name: Register Dependencies
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/dependencies.yaml'
+
   output:
     links:
       - title: Repository
