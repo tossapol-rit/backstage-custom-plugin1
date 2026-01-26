@@ -82,6 +82,8 @@ techdocs:
 auth:
   # see https://backstage.io/docs/auth/ to learn about auth providers
   environment: development
+  session:
+    secret: backstage_secret_key_for_development
   providers:
     # See https://backstage.io/docs/auth/guest/provider
     guest: {}
@@ -89,6 +91,12 @@ auth:
       development:
         clientId: ${GITHUB_CLIENT_ID}
         clientSecret: ${GITHUB_CLIENT_SECRET}
+    oidc:
+      development:
+        metadataUrl: http://localhost:18080/realms/backstage/.well-known/openid-configuration
+        clientId: backstage
+        clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+        prompt: auto
 
 scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options

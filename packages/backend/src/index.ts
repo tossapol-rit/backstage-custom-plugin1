@@ -34,6 +34,8 @@ backend.add(import('@backstage/plugin-auth-backend'));
 // See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
 backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
 backend.add(import('@backstage/plugin-auth-backend-module-github-provider'));
+// OIDC (Keycloak) provider with custom resolver
+backend.add(import('./modules/oidcAuthModule'));
 // See https://backstage.io/docs/auth/guest/provider
 
 // catalog plugin

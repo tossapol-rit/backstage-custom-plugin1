@@ -38,6 +38,7 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 import { NotificationsPage } from '@backstage/plugin-notifications';
 import { SignalsDisplay } from '@backstage/plugin-signals';
 import { VaultPage } from '@internal/backstage-plugin-vault';
+import { keycloakAuthApiRef } from './apis';
 
 const app = createApp({
   apis,
@@ -59,7 +60,20 @@ const app = createApp({
     });
   },
   components: {
-    SignInPage: props => <SignInPage {...props} auto providers={['guest']} />,
+    SignInPage: props => (
+      <SignInPage
+        {...props}
+        providers={[
+          'guest',
+          {
+            id: 'keycloak-auth-provider',
+            title: 'Keycloak',
+            message: 'Sign In using Keycloak',
+            apiRef: keycloakAuthApiRef,
+          },
+        ]}
+      />
+    ),
   },
 });
 
